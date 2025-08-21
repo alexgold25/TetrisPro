@@ -19,6 +19,11 @@ public class GameEngine : IGameEngine
     private double _gravityCounter;
     private TimeSpan _lockCounter;
     private bool _holdUsed;
+    private TimeSpan _leftHold;
+    private TimeSpan _rightHold;
+    private TimeSpan _leftRepeat;
+    private TimeSpan _rightRepeat;
+    private readonly HashSet<InputKey> _consumed = new();
 
     public GameState State { get; private set; } = new();
 
@@ -54,7 +59,7 @@ public class GameEngine : IGameEngine
         if (State.Status != GameStatus.Active || State.ActivePiece is null)
             return;
 
-        HandleInput();
+        HandleInput(delta);
 
         var piece = State.ActivePiece;
         bool wasGrounded = IsGrounded();
@@ -98,47 +103,73 @@ public class GameEngine : IGameEngine
         return State.Board.IsCollision(test);
     }
 
-    private void HandleInput()
+    private void HandleInput(TimeSpan delta)
     {
         var piece = State.ActivePiece!;
-        if (_input.IsDown(InputKey.Left))
-        {
-            if (TryMove(piece, new PointI(-1,0))) _lockCounter = TimeSpan.Zero;
-        }
-        if (_input.IsDown(InputKey.Right))
-        {
-            if (TryMove(piece, new PointI(1,0))) _lockCounter = TimeSpan.Zero;
-        }
-        if (_input.IsDown(InputKey.RotateCW))
-        {
-            TryRotate(piece, true);
-        }
-        if (_input.IsDown(InputKey.RotateCCW))
-        {
-            TryRotate(piece, false);
-        }
-        if (_input.IsDown(InputKey.Rotate180))
+
+        HandleHorizontal(InputKey.Left, new PointI(-1,0), ref _leftHold, ref _leftRepeat, delta);
+        HandleHorizontal(InputKey.Right, new PointI(1,0), ref _rightHold, ref _rightRepeat, delta);
+
+        HandleSingle(InputKey.RotateCW, () => TryRotate(piece, true));
+        HandleSingle(InputKey.RotateCCW, () => TryRotate(piece, false));
+        HandleSingle(InputKey.Rotate180, () =>
         {
             piece.Rotate180();
             if (State.Board.IsCollision(piece)) piece.Rotate180();
-        }
-        if (_input.IsDown(InputKey.HardDrop))
+        });
+        HandleSingle(InputKey.HardDrop, () =>
         {
             int drop = 0;
             while (TryMove(piece, new PointI(0,1))) drop++;
             State.Score += Scoring.HardDrop(drop);
             LockPiece();
-        }
-        else if (_input.IsDown(InputKey.SoftDrop))
+        });
+
+        if (_input.IsDown(InputKey.SoftDrop))
         {
             if (TryMove(piece, new PointI(0,1)))
-            {
                 State.Score += Scoring.SoftDrop(1);
-            }
         }
-        if (_input.IsDown(InputKey.Hold))
+
+        HandleSingle(InputKey.Hold, Hold);
+    }
+
+    private void HandleSingle(InputKey key, Action action)
+    {
+        if (_input.IsDown(key))
         {
-            Hold();
+            if (_consumed.Add(key))
+                action();
+        }
+        else
+        {
+            _consumed.Remove(key);
+        }
+    }
+
+    private void HandleHorizontal(InputKey key, PointI delta, ref TimeSpan hold, ref TimeSpan repeat, TimeSpan frameDelta)
+    {
+        if (_input.IsDown(key))
+        {
+            if (hold == TimeSpan.Zero)
+            {
+                if (TryMove(State.ActivePiece!, delta)) _lockCounter = TimeSpan.Zero;
+            }
+            else if (hold >= _config.Das)
+            {
+                repeat += frameDelta;
+                while (repeat >= _config.Arr)
+                {
+                    if (TryMove(State.ActivePiece!, delta)) _lockCounter = TimeSpan.Zero;
+                    repeat -= _config.Arr;
+                }
+            }
+            hold += frameDelta;
+        }
+        else
+        {
+            hold = TimeSpan.Zero;
+            repeat = TimeSpan.Zero;
         }
     }
 

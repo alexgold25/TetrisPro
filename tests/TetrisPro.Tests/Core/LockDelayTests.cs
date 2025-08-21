@@ -17,7 +17,7 @@ public class LockDelayTests
         var engine = new GameEngine(new FixedRandomizer(PieceType.O), new DummyInput(), new SystemTimeProvider(), NullLogger<GameEngine>.Instance);
         engine.StartNewGame(new GameConfig { LockDelay = TimeSpan.FromMilliseconds(500) });
         // drop piece until it collides
-        for (int i = 0; i < Board.TotalHeight; i++)
+        for (int i = 0; i < Board.VisibleHeight; i++)
             engine.Update(TimeSpan.FromSeconds(1));
         engine.State.ActivePiece.Should().NotBeNull();
         engine.Update(TimeSpan.FromMilliseconds(100));
