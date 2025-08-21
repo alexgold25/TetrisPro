@@ -1,28 +1,41 @@
 <Window x:Class="TetrisPro.App.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="clr-namespace:TetrisPro.App.ViewModels"
-        xmlns:ctrl="clr-namespace:TetrisPro.App.Controls"
-        Title="TetrisPro" Height="600" Width="800">
-    <Window.DataContext>
-        <vm:MainViewModel />
-    </Window.DataContext>
-    <Grid>
+        xmlns:controls="TetrisPro.App.Controls" 
+        Title="TetrisPro" Height="700" Width="520"
+        Background="{DynamicResource Brush.Background}">
+    <Grid Margin="16">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="3*" />
             <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="220" />
         </Grid.ColumnDefinitions>
-        <ctrl:PlayfieldControl Grid.Column="0" ItemsSource="{Binding BoardCells}" />
-        <StackPanel Grid.Column="1" Margin="10">
-            <ctrl:MiniBoardControl ItemsSource="{Binding HoldPiece}" Header="Hold" Height="100" Margin="0,0,0,20"/>
-            <ctrl:MiniBoardControl ItemsSource="{Binding NextPieces}" Header="Next" Height="100" Margin="0,0,0,20"/>
-            <TextBlock Text="{Binding Score, StringFormat=Score: {0}}" Margin="0,0,0,10"/>
-            <TextBlock Text="{Binding Level, StringFormat=Level: {0}}" Margin="0,0,0,10"/>
-            <TextBlock Text="{Binding Lines, StringFormat=Lines: {0}}" Margin="0,0,0,10"/>
-            <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+
+
+        <controls: Grid.Column="0"
+                                   ItemsSource="{Binding BoardCells}" />
+
+        <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Top" Spacing="12">
+            <TextBlock Text="NEXT" Foreground="{DynamicResource Brush.Foreground}" FontWeight="Bold" />
+            <controls:MiniBoardControl ItemsSource="{Binding NextPieces}" />
+
+            <TextBlock Text="HOLD" Margin="0,16,0,0" Foreground="{DynamicResource Brush.Foreground}" FontWeight="Bold" />
+            <controls:MiniBoardControl ItemsSource="{Binding HoldPiece}" />
+
+            <StackPanel Margin="0,16,0,0">
+                <TextBlock Text="{Binding Score, StringFormat=Score: {0}}"
+                           Foreground="{DynamicResource Brush.Foreground}" />
+                <TextBlock Text="{Binding Level, StringFormat=Level: {0}}"
+                           Foreground="{DynamicResource Brush.Foreground}" />
+                <TextBlock Text="{Binding Lines, StringFormat=Lines: {0}}"
+                           Foreground="{DynamicResource Brush.Foreground}" />
+                <TextBlock Text="{Binding StatusText}"
+                           Foreground="{DynamicResource Brush.Foreground}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,12,0,0">
                 <Button Content="New Game" Command="{Binding NewGameCommand}" />
-                <Button Content="Pause" Command="{Binding PauseCommand}" Margin="10,0,0,0"/>
-                <Button Content="Resume" Command="{Binding ResumeCommand}" Margin="10,0,0,0"/>
+                <Button Content="Pause" Command="{Binding PauseCommand}" />
+                <Button Content="Resume" Command="{Binding ResumeCommand}" />
             </StackPanel>
         </StackPanel>
     </Grid>
