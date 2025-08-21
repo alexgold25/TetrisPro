@@ -17,13 +17,10 @@ public partial class MainWindow : Window
     public MainWindow(IInputService input, RenderTicker ticker, IGameEngine engine, MainViewModel vm)
     {
         InitializeComponent();
-        // Через DI (если App держит ServiceProvider)
-        var vm = ((App)Application.Current).Services.GetRequiredService<MainViewModel>();
         DataContext = vm;
 
-        // Если DI ещё не поднят — временный fallback:
         // DataContext = new MainViewModel();
-         _input = input;
+        _input = input;
         _ticker = ticker;
         _engine = engine;
         _ticker.Tick += OnTick;
