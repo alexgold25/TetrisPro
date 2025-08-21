@@ -89,7 +89,7 @@ namespace TetrisPro.App.ViewModels
 
         public MainViewModel()
         {
-            // демо-заливка поля
+            // РґРµРјРѕ-Р·Р°Р»РёРІРєР° РїРѕР»СЏ
             for (int i = 0; i < 200; i++)
             {
                 BoardCells.Add(new CellVm
@@ -103,6 +103,16 @@ namespace TetrisPro.App.ViewModels
         [RelayCommand] private void NewGame() { }
         [RelayCommand] private void Pause() { }
         [RelayCommand] private void Resume() { }
+
+        /// <summary>
+        /// Refreshes the values exposed by the view model.  The current
+        /// implementation is a stub used to satisfy the build and can be
+        /// expanded to pull data from the game engine once it is available.
+        /// </summary>
+        public void UpdateState()
+        {
+            // Intentionally left blank вЂ“ game state updates will be wired in later.
+        }
     }
 
     public class CellVm
