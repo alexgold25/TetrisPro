@@ -1,123 +1,199 @@
-//using System.Collections.Generic;
-//using System.Collections.ObjectModel;
-//using System.Linq;
-//using CommunityToolkit.Mvvm.ComponentModel;
-//using CommunityToolkit.Mvvm.Input;
-//using TetrisPro.Core.Config;
-//using TetrisPro.Core.Engine;
-//using TetrisPro.Core.Models;
-
-//namespace TetrisPro.App.ViewModels;
-
-//public partial class MainViewModel : ObservableObject
-//{
-//    private readonly IGameEngine _engine;
-
-//    [ObservableProperty]
-//    private ObservableCollection<CellViewModel> boardCells = new();
-
-//    [ObservableProperty]
-//    private IList<PieceType> nextPieces = new List<PieceType>();
-
-//    [ObservableProperty]
-//    private Tetromino? holdPiece;
-
-//    [ObservableProperty] private int score;
-//    [ObservableProperty] private int level;
-//    [ObservableProperty] private int lines;
-
-//    public MainViewModel(IGameEngine engine)
-//    {
-//        _engine = engine;
-//    }
-
-//    [RelayCommand]
-//    private void NewGame()
-//    {
-//        _engine.StartNewGame(new GameConfig());
-//        UpdateState();
-//    }
-
-//    [RelayCommand] private void Pause() => _engine.Pause();
-//    [RelayCommand] private void Resume() => _engine.Resume();
-
-//    public void UpdateState()
-//    {
-//        var state = _engine.State;
-//        Score = state.Score;
-//        Level = state.Level;
-//        Lines = state.Lines;
-//        HoldPiece = state.HoldPiece;
-//        NextPieces = state.NextQueue.ToList();
-//        BoardCells = new ObservableCollection<CellViewModel>(
-//            state.Board.GetCells().Select(c => new CellViewModel(c.type switch
-//            {
-//                PieceType.I => "#00FFFF",
-//                PieceType.J => "#0000FF",
-//                PieceType.L => "#FFA500",
-//                PieceType.O => "#FFFF00",
-//                PieceType.S => "#00FF00",
-//                PieceType.T => "#800080",
-//                PieceType.Z => "#FF0000",
-//                _ => "#000000"
-//            })));
-//    }
-
-//    public class CellViewModel
-//    {
-//        public string Color { get; }
-//        public CellViewModel(string color) => Color = color;
-//    }
-//}
-
-// ViewModels/MainViewModel.cs
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Media;
+using TetrisPro.Core.Config;
+using TetrisPro.Core.Engine;
+using TetrisPro.Core.Models;
 
-namespace TetrisPro.App.ViewModels
+namespace TetrisPro.App.ViewModels;
+
+/// <summary>
+/// View model bridging the core game engine with the WPF views.
+/// It exposes the playfield, next queue and hold piece as collections of
+/// coloured cells so that the XAML controls can render them directly.
+/// </summary>
+public partial class MainViewModel : ObservableObject
 {
-    public partial class MainViewModel : ObservableObject
+    private readonly IGameEngine _engine;
+
+    /// <summary>Cells representing the playfield (10×20).</summary>
+    public ObservableCollection<CellVm> BoardCells { get; } = new();
+
+    /// <summary>Cells representing the upcoming pieces.</summary>
+    public ObservableCollection<IEnumerable<CellVm>> NextPieces { get; } = new();
+
+    [ObservableProperty] private IEnumerable<CellVm>? holdPiece;
+    [ObservableProperty] private int score;
+    [ObservableProperty] private int level;
+    [ObservableProperty] private int lines;
+    [ObservableProperty] private string statusText = "Ready";
+
+    public MainViewModel(IGameEngine engine)
     {
-        public ObservableCollection<CellVm> BoardCells { get; } = new();
+        _engine = engine;
 
-        [ObservableProperty] private int score;
-        [ObservableProperty] private int level = 1;
-        [ObservableProperty] private int lines;
-        [ObservableProperty] private string statusText = "Ready";
-
-        public MainViewModel()
+        // Initialise board with empty cells so bindings are ready before the
+        // first update occurs.
+        for (int i = 0; i < Board.Width * Board.VisibleHeight; i++)
         {
-            // демо-заливка поля
-            for (int i = 0; i < 200; i++)
+            BoardCells.Add(new CellVm
             {
-                BoardCells.Add(new CellVm
-                {
-                    Fill = new SolidColorBrush(Color.FromRgb(55, 55, 55)),
-                    Stroke = new SolidColorBrush(Color.FromRgb(30, 30, 30))
-                });
-            }
-        }
-
-        [RelayCommand] private void NewGame() { }
-        [RelayCommand] private void Pause() { }
-        [RelayCommand] private void Resume() { }
-
-        /// <summary>
-        /// Refreshes the values exposed by the view model.  The current
-        /// implementation is a stub used to satisfy the build and can be
-        /// expanded to pull data from the game engine once it is available.
-        /// </summary>
-        public void UpdateState()
-        {
-            // Intentionally left blank – game state updates will be wired in later.
+                Fill = new SolidColorBrush(Color.FromRgb(55, 55, 55)),
+                Stroke = new SolidColorBrush(Color.FromRgb(30, 30, 30))
+            });
         }
     }
 
-    public class CellVm
+    [RelayCommand]
+    private void NewGame()
+    {
+        _engine.StartNewGame(new GameConfig());
+        UpdateState();
+    }
+
+    [RelayCommand] private void Pause() => _engine.Pause();
+    [RelayCommand] private void Resume() => _engine.Resume();
+
+    /// <summary>
+    /// Refreshes all values exposed by the view model from the engine's state.
+    /// Should be called each frame by <see cref="Views.MainWindow"/>.
+    /// </summary>
+    public void UpdateState()
+    {
+        var state = _engine.State;
+
+        Score = state.Score;
+        Level = state.Level;
+        Lines = state.Lines;
+        StatusText = state.Status.ToString();
+
+        // Update board / active / ghost pieces.
+        UpdateBoardCells(state);
+
+        // Update next queue.
+        NextPieces.Clear();
+        foreach (var type in state.NextQueue)
+        {
+            var piece = new Tetromino(type, ColorFor(type));
+            NextPieces.Add(CreateMiniBoard(piece));
+        }
+
+        // Update hold piece.
+        HoldPiece = state.HoldPiece is null
+            ? null
+            : CreateMiniBoard(state.HoldPiece);
+    }
+
+    private void UpdateBoardCells(GameState state)
+    {
+        // Prepare a working array of colours for the board.
+        var fills = new SolidColorBrush[Board.Width, Board.VisibleHeight];
+        var stroke = new SolidColorBrush(Color.FromRgb(30, 30, 30));
+
+        for (int y = 0; y < Board.VisibleHeight; y++)
+        {
+            for (int x = 0; x < Board.Width; x++)
+            {
+                fills[x, y] = new SolidColorBrush(Color.FromRgb(55, 55, 55));
+            }
+        }
+
+        // Locked cells on the board.
+        foreach (var (x, y, type) in state.Board.GetCells())
+        {
+            if (type.HasValue)
+                fills[x, y] = HexColor(ColorFor(type.Value));
+        }
+
+        // Ghost piece.
+        if (state.GhostPiece is not null)
+        {
+            foreach (var cell in state.GhostPiece.Cells)
+            {
+                var pos = cell + state.GhostPiece.Position;
+                int y = pos.Y - Board.HiddenRows;
+                if (pos.X >= 0 && pos.X < Board.Width && y >= 0 && y < Board.VisibleHeight)
+                    fills[pos.X, y] = new SolidColorBrush(Color.FromRgb(80, 80, 80));
+            }
+        }
+
+        // Active piece.
+        if (state.ActivePiece is not null)
+        {
+            var brush = HexColor(state.ActivePiece.Color);
+            foreach (var cell in state.ActivePiece.Cells)
+            {
+                var pos = cell + state.ActivePiece.Position;
+                int y = pos.Y - Board.HiddenRows;
+                if (pos.X >= 0 && pos.X < Board.Width && y >= 0 && y < Board.VisibleHeight)
+                    fills[pos.X, y] = brush;
+            }
+        }
+
+        // Push colours into the observable collection.
+        for (int y = 0; y < Board.VisibleHeight; y++)
+        {
+            for (int x = 0; x < Board.Width; x++)
+            {
+                int idx = y * Board.Width + x;
+                BoardCells[idx].Fill = fills[x, y];
+                BoardCells[idx].Stroke = stroke;
+            }
+        }
+    }
+
+    private static IEnumerable<CellVm> CreateMiniBoard(Tetromino piece)
+    {
+        var cells = new CellVm[16];
+        for (int i = 0; i < cells.Length; i++)
+        {
+            cells[i] = new CellVm
+            {
+                Fill = Brushes.Transparent,
+                Stroke = new SolidColorBrush(Color.FromRgb(30, 30, 30))
+            };
+        }
+
+        var minX = piece.Cells.Min(c => c.X);
+        var minY = piece.Cells.Min(c => c.Y);
+        var brush = HexColor(piece.Color);
+
+        foreach (var c in piece.Cells)
+        {
+            int x = c.X - minX;
+            int y = c.Y - minY;
+            if (x >= 0 && x < 4 && y >= 0 && y < 4)
+            {
+                cells[y * 4 + x].Fill = brush;
+            }
+        }
+
+        return cells;
+    }
+
+    private static string ColorFor(PieceType type) => type switch
+    {
+        PieceType.I => "#00FFFF",
+        PieceType.J => "#0000FF",
+        PieceType.L => "#FFA500",
+        PieceType.O => "#FFFF00",
+        PieceType.S => "#00FF00",
+        PieceType.T => "#800080",
+        PieceType.Z => "#FF0000",
+        _ => "#FFFFFF"
+    };
+
+    private static SolidColorBrush HexColor(string hex)
+        => new((Color)ColorConverter.ConvertFromString(hex)!);
+
+    /// <summary>Simple view model representing a single cell.</summary>
+    public class CellVm : ObservableObject
     {
         public Brush Fill { get; set; } = Brushes.Transparent;
         public Brush Stroke { get; set; } = Brushes.Transparent;
     }
 }
+
