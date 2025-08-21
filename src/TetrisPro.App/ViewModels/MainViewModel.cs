@@ -192,8 +192,19 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Simple view model representing a single cell.</summary>
     public class CellVm : ObservableObject
     {
-        public Brush Fill { get; set; } = Brushes.Transparent;
-        public Brush Stroke { get; set; } = Brushes.Transparent;
+        private Brush _fill = Brushes.Transparent;
+        public Brush Fill
+        {
+            get => _fill;
+            set => SetProperty(ref _fill, value);
+        }
+
+        private Brush _stroke = Brushes.Transparent;
+        public Brush Stroke
+        {
+            get => _stroke;
+            set => SetProperty(ref _stroke, value);
+        }
     }
 }
 
