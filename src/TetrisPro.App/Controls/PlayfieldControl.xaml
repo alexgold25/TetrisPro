@@ -9,6 +9,16 @@
                     <UniformGrid Columns="10" Rows="20"/>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
+
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Width="24" Height="24" Margin="0.5"
+                            Background="{Binding Fill}"
+                            BorderBrush="{Binding Stroke}"
+                            BorderThickness="0.5"
+                            CornerRadius="4"/>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
         </ItemsControl>
     </Grid>
 </UserControl>

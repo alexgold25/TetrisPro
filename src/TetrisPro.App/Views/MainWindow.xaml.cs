@@ -5,6 +5,7 @@ using TetrisPro.Core.Engine;
 using TetrisPro.Core.Services;
 using TetrisPro.App.ViewModels;
 using TetrisPro.App.Services;
+using TetrisPro.App.Controls;
 
 namespace TetrisPro.App.Views;
 
