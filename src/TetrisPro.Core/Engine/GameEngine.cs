@@ -56,23 +56,46 @@ public class GameEngine : IGameEngine
 
         HandleInput();
 
+        var piece = State.ActivePiece;
+        bool wasGrounded = IsGrounded();
+
         var gravityPerSecond = _config.GravityByLevel[Math.Min(State.Level, _config.GravityByLevel.Count - 1)];
         _gravityCounter += delta.TotalSeconds * gravityPerSecond;
         while (_gravityCounter >= 1)
         {
-            if (!TryMove(State.ActivePiece, new PointI(0,1)))
+            if (!TryMove(piece, new PointI(0,1)))
+            {
+                _gravityCounter = 0;
+                break;
+            }
+            _gravityCounter -= 1;
+        }
+
+        var grounded = IsGrounded();
+        if (grounded)
+        {
+            if (wasGrounded)
             {
                 _lockCounter += delta;
                 if (_lockCounter >= _config.LockDelay)
                     LockPiece();
-                break;
             }
             else
             {
                 _lockCounter = TimeSpan.Zero;
             }
-            _gravityCounter -= 1;
         }
+        else
+        {
+            _lockCounter = TimeSpan.Zero;
+        }
+    }
+
+    private bool IsGrounded()
+    {
+        var test = State.ActivePiece!.Clone();
+        test.Position += new PointI(0,1);
+        return State.Board.IsCollision(test);
     }
 
     private void HandleInput()
