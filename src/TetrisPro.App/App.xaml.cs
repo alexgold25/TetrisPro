@@ -23,6 +23,7 @@ public partial class App : Application
                 services.AddSingleton<ITimeProvider, SystemTimeProvider>();
                 services.AddSingleton<IGameEngine, GameEngine>();
                 services.AddSingleton<RenderTicker>();
+                services.AddSingleton<AutoPlayer>();
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<Views.MainWindow>();
             })

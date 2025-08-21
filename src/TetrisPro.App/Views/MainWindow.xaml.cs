@@ -14,8 +14,9 @@ public partial class MainWindow : Window
     private readonly IInputService _input;
     private readonly RenderTicker _ticker;
     private readonly IGameEngine _engine;
+    private readonly AutoPlayer _ai;
 
-    public MainWindow(IInputService input, RenderTicker ticker, IGameEngine engine, MainViewModel vm)
+    public MainWindow(IInputService input, RenderTicker ticker, IGameEngine engine, AutoPlayer ai, MainViewModel vm)
     {
         InitializeComponent();
         DataContext = vm;
@@ -24,6 +25,7 @@ public partial class MainWindow : Window
         _input = input;
         _ticker = ticker;
         _engine = engine;
+        _ai = ai;
         _ticker.Tick += OnTick;
         _ticker.Start();
         KeyDown += OnKeyDownHandler;
@@ -32,6 +34,9 @@ public partial class MainWindow : Window
 
     private void OnTick(object? sender, TimeSpan delta)
     {
+        _ai.Update();
+        if (_ai.Enabled)
+            delta = TimeSpan.FromTicks(delta.Ticks * _ai.SpeedMultiplier);
         _engine.Update(delta);
         if (DataContext is MainViewModel vm)
             vm.UpdateState();

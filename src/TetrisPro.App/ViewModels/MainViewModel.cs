@@ -7,6 +7,7 @@ using System.Windows.Media;
 using TetrisPro.Core.Config;
 using TetrisPro.Core.Engine;
 using TetrisPro.Core.Models;
+using TetrisPro.App.Services;
 
 namespace TetrisPro.App.ViewModels;
 
@@ -18,6 +19,7 @@ namespace TetrisPro.App.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly IGameEngine _engine;
+    private readonly AutoPlayer _ai;
 
     /// <summary>Cells representing the playfield (10×20).</summary>
     public ObservableCollection<CellVm> BoardCells { get; } = new();
@@ -30,10 +32,14 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int level;
     [ObservableProperty] private int lines;
     [ObservableProperty] private string statusText = "Ready";
+    [ObservableProperty] private bool aiEnabled;
+    [ObservableProperty] private string aiText = "AI Off";
+    [ObservableProperty] private string speedText = "1x";
 
-    public MainViewModel(IGameEngine engine)
+    public MainViewModel(IGameEngine engine, AutoPlayer ai)
     {
         _engine = engine;
+        _ai = ai;
 
         // Initialise board with empty cells so bindings are ready before the
         // first update occurs.
@@ -56,6 +62,22 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand] private void Pause() => _engine.Pause();
     [RelayCommand] private void Resume() => _engine.Resume();
+    [RelayCommand]
+    private void ToggleAi()
+    {
+        AiEnabled = !AiEnabled;
+        _ai.Enabled = AiEnabled;
+        _ai.ResetSpeed();
+        AiText = AiEnabled ? "AI On" : "AI Off";
+        SpeedText = "1x";
+    }
+
+    [RelayCommand]
+    private void CycleSpeed()
+    {
+        _ai.CycleSpeed();
+        SpeedText = $"{_ai.SpeedMultiplier}x";
+    }
 
     /// <summary>
     /// Refreshes all values exposed by the view model from the engine's state.
