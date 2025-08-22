@@ -19,7 +19,6 @@ public class AutoPlayer
     private Tetromino? _lastPiece;
     private readonly Queue<InputKey> _actions = new();
     private readonly HashSet<InputKey> _release = new();
-    private bool _softDrop;
 
     public bool Enabled { get; set; }
     public int SpeedMultiplier { get; private set; } = 1;
@@ -58,11 +57,10 @@ public class AutoPlayer
         {
             _lastPiece = piece;
             _actions.Clear();
-            _softDrop = false;
             if (piece != null)
             {
-                var plan = FindBestPlacement(_engine.State.Board, piece.Clone());
-                EnqueueMoves(piece, plan.targetX, plan.targetRot);
+                foreach (var act in FindBestMoves(_engine.State.Board, piece.Clone()))
+                    _actions.Enqueue(act);
             }
         }
 
@@ -72,20 +70,10 @@ public class AutoPlayer
             _input.KeyDown(key);
             _release.Add(key);
         }
-        else if (!_softDrop)
-        {
-            _input.KeyDown(InputKey.SoftDrop);
-            _softDrop = true;
-        }
     }
 
     private void ReleaseAll()
     {
-        if (_softDrop)
-        {
-            _input.KeyUp(InputKey.SoftDrop);
-            _softDrop = false;
-        }
         foreach (var k in _release.ToList())
         {
             _input.KeyUp(k);
@@ -95,51 +83,30 @@ public class AutoPlayer
         _lastPiece = null;
     }
 
-    private void EnqueueMoves(Tetromino current, int targetX, Rotation targetRot)
+    private IEnumerable<InputKey> FindBestMoves(Board board, Tetromino piece)
     {
-        // Rotation moves
-        int diff = ((int)targetRot - (int)current.Rotation + 4) & 3;
-        switch (diff)
-        {
-            case 1: _actions.Enqueue(InputKey.RotateCW); break;
-            case 2: _actions.Enqueue(InputKey.Rotate180); break;
-            case 3: _actions.Enqueue(InputKey.RotateCCW); break;
-        }
+        var start = new Node(piece.Position, piece.Rotation);
+        var queue = new Queue<Node>();
+        var parents = new Dictionary<Node, (Node parent, InputKey action)>();
+        queue.Enqueue(start);
+        parents[start] = (start, default);
 
-        // Horizontal moves
-        int dx = targetX - current.Position.X;
-        if (dx < 0)
-            for (int i = 0; i < -dx; i++) _actions.Enqueue(InputKey.Left);
-        else if (dx > 0)
-            for (int i = 0; i < dx; i++) _actions.Enqueue(InputKey.Right);
-    }
-
-    private (int targetX, Rotation targetRot) FindBestPlacement(Board board, Tetromino piece)
-    {
         double bestScore = double.NegativeInfinity;
-        int bestX = piece.Position.X;
-        Rotation bestRot = piece.Rotation;
+        Node best = start;
 
-        foreach (Rotation rot in Enum.GetValues(typeof(Rotation)))
+        while (queue.Count > 0)
         {
+            var node = queue.Dequeue();
             var p = piece.Clone();
-            p.Rotation = rot;
-            // Adjust starting Y so that piece is fully inside board.
-            int minY = p.Cells.Min(c => c.Y);
-            int startY = -minY;
-            p.Position = new PointI(p.Position.X, startY);
+            p.Position = node.Position;
+            p.Rotation = node.Rotation;
 
-            int minX = -p.Cells.Min(c => c.X);
-            int maxX = Board.Width - 1 - p.Cells.Max(c => c.X);
-            for (int x = minX; x <= maxX; x++)
+            var down = p.Clone();
+            down.Position += new PointI(0,1);
+            bool grounded = board.IsCollision(down);
+            if (grounded)
             {
-                p.Position = new PointI(x, startY);
                 var b = CloneBoard(board);
-                // Drop piece
-                while (!b.IsCollision(p))
-                    p.Position += new PointI(0, 1);
-                p.Position -= new PointI(0, 1);
-
                 foreach (var c in p.Cells)
                 {
                     var pos = c + p.Position;
@@ -150,13 +117,43 @@ public class AutoPlayer
                 if (score > bestScore)
                 {
                     bestScore = score;
-                    bestX = x;
-                    bestRot = rot;
+                    best = node;
                 }
             }
+
+            void Try(Node from, InputKey act, Action<Tetromino> move)
+            {
+                var np = p.Clone();
+                move(np);
+                if (board.IsCollision(np)) return;
+                var n = new Node(np.Position, np.Rotation);
+                if (parents.ContainsKey(n)) return;
+                queue.Enqueue(n);
+                parents[n] = (from, act);
+            }
+
+            Try(node, InputKey.Left, t => t.Position += new PointI(-1,0));
+            Try(node, InputKey.Right, t => t.Position += new PointI(1,0));
+            Try(node, InputKey.SoftDrop, t => t.Position += new PointI(0,1));
+            Try(node, InputKey.RotateCW, t => t.RotateCW());
+            Try(node, InputKey.RotateCCW, t => t.RotateCCW());
+            Try(node, InputKey.Rotate180, t => t.Rotate180());
         }
-        return (bestX, bestRot);
+
+        var actions = new List<InputKey>();
+        var cur = best;
+        while (cur != start)
+        {
+            var info = parents[cur];
+            actions.Add(info.action);
+            cur = info.parent;
+        }
+        actions.Reverse();
+        actions.Add(InputKey.HardDrop);
+        return actions;
     }
+
+    private readonly record struct Node(PointI Position, Rotation Rotation);
 
     private static Board CloneBoard(Board source)
     {
