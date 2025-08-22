@@ -17,8 +17,8 @@ public class AutoPlayer
     private readonly IInputService _input;
 
     private Tetromino? _lastPiece;
-    private readonly Queue<InputKey> _actions = new();
-    private readonly HashSet<InputKey> _release = new();
+    private readonly Queue<InputKey> _plan = new();
+    private readonly HashSet<InputKey> _keysToRelease = new();
 
     public bool Enabled { get; set; }
     public int SpeedMultiplier { get; private set; } = 1;
@@ -37,88 +37,73 @@ public class AutoPlayer
 
     public void ResetSpeed() => SpeedMultiplier = 1;
 
+    public void OnPieceSpawn(GameState s)
+    {
+        _plan.Clear();
+        if (s.ActivePiece is null) return;
+        foreach (var m in FindBestMoves(s.Board, s.ActivePiece))
+            _plan.Enqueue(m);
+    }
+
     public void Update()
     {
-        // Release keys from previous frame.
-        foreach (var k in _release.ToList())
-        {
-            _input.KeyUp(k);
-            _release.Remove(k);
-        }
-
-        if (!Enabled)
-        {
-            ReleaseAll();
-            return;
-        }
-
         var piece = _engine.State.ActivePiece;
         if (piece != _lastPiece)
         {
             _lastPiece = piece;
-            _actions.Clear();
             if (piece != null)
-            {
-                foreach (var act in FindBestMoves(_engine.State.Board, piece.Clone()))
-                    _actions.Enqueue(act);
-            }
+                OnPieceSpawn(_engine.State);
         }
 
-        if (_actions.Count > 0)
+        if (!Enabled || _plan.Count == 0) return;
+
+        int taps = Math.Max(1, SpeedMultiplier);
+        while (taps-- > 0 && _plan.Count > 0)
         {
-            var key = _actions.Dequeue();
+            var key = _plan.Dequeue();
             _input.KeyDown(key);
-            _release.Add(key);
+            _keysToRelease.Add(key);
         }
-    }
 
-    private void ReleaseAll()
-    {
-        foreach (var k in _release.ToList())
-        {
+        foreach (var k in _keysToRelease)
             _input.KeyUp(k);
-            _release.Remove(k);
-        }
-        _actions.Clear();
-        _lastPiece = null;
+        _keysToRelease.Clear();
     }
 
-    private IEnumerable<InputKey> FindBestMoves(Board board, Tetromino piece)
+    public List<InputKey> FindBestMoves(Board board, Tetromino current)
     {
         double bestScore = double.NegativeInfinity;
-        int bestX = piece.Position.X;
-        Rotation bestRot = piece.Rotation;
+        int bestX = current.Position.X;
+        int bestRot = (int)current.Rotation;
 
-        foreach (Rotation rot in (Rotation[])Enum.GetValues(typeof(Rotation)))
+        for (int rot = 0; rot < 4; rot++)
         {
-            var rotated = piece.Clone();
-            rotated.Rotation = rot;
+            var piece = current.Clone();
+            piece.Rotation = (Rotation)rot;
 
             for (int x = -2; x < Board.Width + 2; x++)
             {
-                var test = rotated.Clone();
+                var test = piece.Clone();
                 test.Position = new PointI(x, test.Position.Y);
                 if (board.IsCollision(test))
                     continue;
 
                 while (true)
                 {
-                    test.Position += new PointI(0,1);
+                    test.Position += new PointI(0, 1);
                     if (board.IsCollision(test))
                     {
-                        test.Position -= new PointI(0,1);
+                        test.Position -= new PointI(0, 1);
                         break;
                     }
                 }
 
-                var b = CloneBoard(board);
-                foreach (var c in test.Cells)
-                {
-                    var pos = c + test.Position;
-                    b[pos.X, pos.Y] = test.Type;
-                }
-                int lines = b.ClearFullLines();
-                double score = Evaluate(b, lines);
+                var temp = CloneBoard(board);
+                Place(temp, test);
+                int cleared = temp.ClearFullLines();
+                ExtractHeights(temp, out int aggHeight, out int holes, out int bumpiness, out int wells);
+                double score = 0.76 * cleared - 0.51 * aggHeight - 0.36 * holes - 0.18 * bumpiness - 0.10 * wells;
+
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -130,26 +115,31 @@ public class AutoPlayer
 
         var actions = new List<InputKey>();
 
-        int rotateDiff = ((int)bestRot - (int)piece.Rotation + 4) & 3;
-        switch (rotateDiff)
+        int dx = bestX - current.Position.X;
+        if (dx < 0)
+            for (int i = 0; i < -dx; i++) actions.Add(InputKey.Left);
+        else if (dx > 0)
+            for (int i = 0; i < dx; i++) actions.Add(InputKey.Right);
+
+        int rotDiff = (bestRot - (int)current.Rotation) & 3;
+        switch (rotDiff)
         {
             case 1: actions.Add(InputKey.RotateCW); break;
             case 2: actions.Add(InputKey.Rotate180); break;
             case 3: actions.Add(InputKey.RotateCCW); break;
         }
 
-        int dx = bestX - piece.Position.X;
-        if (dx < 0)
-        {
-            for (int i = 0; i < -dx; i++) actions.Add(InputKey.Left);
-        }
-        else if (dx > 0)
-        {
-            for (int i = 0; i < dx; i++) actions.Add(InputKey.Right);
-        }
-
         actions.Add(InputKey.HardDrop);
         return actions;
+    }
+
+    private static void Place(Board board, Tetromino piece)
+    {
+        foreach (var c in piece.Cells)
+        {
+            var p = c + piece.Position;
+            board[p.X, p.Y] = piece.Type;
+        }
     }
 
     private static Board CloneBoard(Board source)
@@ -161,10 +151,10 @@ public class AutoPlayer
         return b;
     }
 
-    private static double Evaluate(Board board, int lines)
+    private static void ExtractHeights(Board board, out int aggHeight, out int holes, out int bumpiness, out int wells)
     {
         int[] heights = new int[Board.Width];
-        int holes = 0;
+        holes = 0;
         for (int x = 0; x < Board.Width; x++)
         {
             bool block = false;
@@ -185,12 +175,20 @@ public class AutoPlayer
             }
         }
 
-        int aggregateHeight = heights.Sum();
-        int bumpiness = 0;
+        aggHeight = heights.Sum();
+        bumpiness = 0;
         for (int x = 0; x < Board.Width - 1; x++)
             bumpiness += Math.Abs(heights[x] - heights[x + 1]);
 
-        return 0.76 * lines - 0.18 * aggregateHeight - 0.51 * holes - 0.36 * bumpiness;
+        wells = 0;
+        for (int x = 0; x < Board.Width; x++)
+        {
+            int left = x == 0 ? heights[x + 1] : heights[x - 1];
+            int right = x == Board.Width - 1 ? heights[x - 1] : heights[x + 1];
+            int min = Math.Min(left, right);
+            if (min > heights[x])
+                wells += min - heights[x];
+        }
     }
 }
 
