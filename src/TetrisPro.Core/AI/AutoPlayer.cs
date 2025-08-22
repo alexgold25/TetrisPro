@@ -85,75 +85,72 @@ public class AutoPlayer
 
     private IEnumerable<InputKey> FindBestMoves(Board board, Tetromino piece)
     {
-        var start = new Node(piece.Position, piece.Rotation);
-        var queue = new Queue<Node>();
-        var parents = new Dictionary<Node, (Node parent, InputKey action)>();
-        queue.Enqueue(start);
-        parents[start] = (start, default);
-
         double bestScore = double.NegativeInfinity;
-        Node best = start;
+        int bestX = piece.Position.X;
+        Rotation bestRot = piece.Rotation;
 
-        while (queue.Count > 0)
+        foreach (Rotation rot in (Rotation[])Enum.GetValues(typeof(Rotation)))
         {
-            var node = queue.Dequeue();
-            var p = piece.Clone();
-            p.Position = node.Position;
-            p.Rotation = node.Rotation;
+            var rotated = piece.Clone();
+            rotated.Rotation = rot;
 
-            var down = p.Clone();
-            down.Position += new PointI(0,1);
-            bool grounded = board.IsCollision(down);
-            if (grounded)
+            for (int x = -2; x < Board.Width + 2; x++)
             {
-                var b = CloneBoard(board);
-                foreach (var c in p.Cells)
+                var test = rotated.Clone();
+                test.Position = new PointI(x, test.Position.Y);
+                if (board.IsCollision(test))
+                    continue;
+
+                while (true)
                 {
-                    var pos = c + p.Position;
-                    b[pos.X, pos.Y] = p.Type;
+                    test.Position += new PointI(0,1);
+                    if (board.IsCollision(test))
+                    {
+                        test.Position -= new PointI(0,1);
+                        break;
+                    }
+                }
+
+                var b = CloneBoard(board);
+                foreach (var c in test.Cells)
+                {
+                    var pos = c + test.Position;
+                    b[pos.X, pos.Y] = test.Type;
                 }
                 int lines = b.ClearFullLines();
                 double score = Evaluate(b, lines);
                 if (score > bestScore)
                 {
                     bestScore = score;
-                    best = node;
+                    bestX = x;
+                    bestRot = rot;
                 }
             }
-
-            void Try(Node from, InputKey act, Action<Tetromino> move)
-            {
-                var np = p.Clone();
-                move(np);
-                if (board.IsCollision(np)) return;
-                var n = new Node(np.Position, np.Rotation);
-                if (parents.ContainsKey(n)) return;
-                queue.Enqueue(n);
-                parents[n] = (from, act);
-            }
-
-            Try(node, InputKey.Left, t => t.Position += new PointI(-1,0));
-            Try(node, InputKey.Right, t => t.Position += new PointI(1,0));
-            Try(node, InputKey.SoftDrop, t => t.Position += new PointI(0,1));
-            Try(node, InputKey.RotateCW, t => t.RotateCW());
-            Try(node, InputKey.RotateCCW, t => t.RotateCCW());
-            Try(node, InputKey.Rotate180, t => t.Rotate180());
         }
 
         var actions = new List<InputKey>();
-        var cur = best;
-        while (cur != start)
+
+        int rotateDiff = ((int)bestRot - (int)piece.Rotation + 4) & 3;
+        switch (rotateDiff)
         {
-            var info = parents[cur];
-            actions.Add(info.action);
-            cur = info.parent;
+            case 1: actions.Add(InputKey.RotateCW); break;
+            case 2: actions.Add(InputKey.Rotate180); break;
+            case 3: actions.Add(InputKey.RotateCCW); break;
         }
-        actions.Reverse();
+
+        int dx = bestX - piece.Position.X;
+        if (dx < 0)
+        {
+            for (int i = 0; i < -dx; i++) actions.Add(InputKey.Left);
+        }
+        else if (dx > 0)
+        {
+            for (int i = 0; i < dx; i++) actions.Add(InputKey.Right);
+        }
+
         actions.Add(InputKey.HardDrop);
         return actions;
     }
-
-    private readonly record struct Node(PointI Position, Rotation Rotation);
 
     private static Board CloneBoard(Board source)
     {
