@@ -5,7 +5,7 @@ using TetrisPro.Core.Engine;
 using TetrisPro.Core.Models;
 using TetrisPro.Core.Services;
 
-namespace TetrisPro.App.Services;
+namespace TetrisPro.Core.AI;
 
 /// <summary>
 /// Simple AI player that finds a good placement for the active piece and
@@ -126,13 +126,14 @@ public class AutoPlayer
             p.Rotation = rot;
             // Adjust starting Y so that piece is fully inside board.
             int minY = p.Cells.Min(c => c.Y);
-            p.Position = new PointI(p.Position.X, -minY);
+            int startY = -minY;
+            p.Position = new PointI(p.Position.X, startY);
 
             int minX = -p.Cells.Min(c => c.X);
             int maxX = Board.Width - 1 - p.Cells.Max(c => c.X);
             for (int x = minX; x <= maxX; x++)
             {
-                p.Position = new PointI(x, p.Position.Y);
+                p.Position = new PointI(x, startY);
                 var b = CloneBoard(board);
                 // Drop piece
                 while (!b.IsCollision(p))
