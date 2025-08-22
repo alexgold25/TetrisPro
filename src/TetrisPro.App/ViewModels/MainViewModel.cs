@@ -7,7 +7,7 @@ using System.Windows.Media;
 using TetrisPro.Core.Config;
 using TetrisPro.Core.Engine;
 using TetrisPro.Core.Models;
-using TetrisPro.App.Services;
+using TetrisPro.Core.AI;
 
 namespace TetrisPro.App.ViewModels;
 

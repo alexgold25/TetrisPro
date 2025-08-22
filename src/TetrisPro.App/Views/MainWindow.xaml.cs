@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using TetrisPro.Core.Engine;
 using TetrisPro.Core.Services;
+using TetrisPro.Core.AI;
 using TetrisPro.App.ViewModels;
 using TetrisPro.App.Services;
 using TetrisPro.App.Controls;

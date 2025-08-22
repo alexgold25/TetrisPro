@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using TetrisPro.Core.Engine;
 using TetrisPro.Core.Services;
+using TetrisPro.Core.AI;
 using TetrisPro.App.Services;
 using TetrisPro.App.ViewModels;
 
