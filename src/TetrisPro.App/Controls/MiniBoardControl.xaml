@@ -6,16 +6,16 @@
         <ItemsControl ItemsSource="{Binding ElementName=Root, Path=ItemsSource}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel Orientation="Vertical"/>
+                    <StackPanel Orientation="Vertical" />
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
 
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <ItemsControl ItemsSource="{Binding}">
+                    <ItemsControl ItemsSource="{Binding}" Width="48" Height="48" HorizontalAlignment="Left">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <UniformGrid Columns="4" Rows="4"/>
+                                <UniformGrid Columns="4" Rows="4" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
@@ -24,7 +24,7 @@
                                         Background="{Binding Fill}"
                                         BorderBrush="{Binding Stroke}"
                                         BorderThickness="0.5"
-                                        CornerRadius="2"/>
+                                        CornerRadius="2" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
