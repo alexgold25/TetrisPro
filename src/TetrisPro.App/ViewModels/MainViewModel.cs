@@ -100,7 +100,7 @@ public partial class MainViewModel : ObservableObject
 
         // Update next queue.
         NextPieces.Clear();
-        foreach (var type in state.NextQueue)
+        foreach (var type in state.NextQueue.Reverse())
         {
             var piece = new Tetromino(type, ColorFor(type));
             NextPieces.Add(CreateMiniBoard(piece));
