@@ -12,7 +12,7 @@
 
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <Border Width="24" Height="24" Margin="0.5"
+                    <Border Width="24" Height="24" Margin="0.5,0.25"
                             Background="{Binding Fill}"
                             BorderBrush="{Binding Stroke}"
                             BorderThickness="0.5"
