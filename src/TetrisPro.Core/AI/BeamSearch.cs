@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using TetrisPro.Core.Models;
 
 namespace TetrisPro.Core.AI;
 
-/// <summary>Very simple beam search over placements.</summary>
+/// <summary>Beam search with optional lookahead.</summary>
 public class BeamSearch
 {
     private readonly int _ply;
@@ -11,19 +13,28 @@ public class BeamSearch
 
     public BeamSearch(int ply = 1, int beamWidth = 32)
     {
-        _ply = ply;
-        _beamWidth = beamWidth;
+        _ply = Math.Max(1, ply);
+        _beamWidth = Math.Max(1, beamWidth);
     }
 
     /// <summary>Returns best placement and score for the current piece.</summary>
     public (Placement placement, double score) Search(GameState state, EvalWeights weights)
     {
-        if (state.ActivePiece == null)
+        if (state.ActivePiece is null)
             return (default, double.NegativeInfinity);
 
-        var piece = state.ActivePiece;
-        double best = double.NegativeInfinity;
-        Placement bestPlacement = new();
+        return SearchRecursive(state.Board, state.ActivePiece, state.NextQueue, weights, _ply, 0);
+    }
+
+    private (Placement placement, double score) SearchRecursive(
+        Board board,
+        Tetromino piece,
+        IReadOnlyList<PieceType> queue,
+        EvalWeights weights,
+        int depth,
+        int queueIndex)
+    {
+        var candidates = new List<(Placement placement, double score, Board board)>();
 
         for (int rot = 0; rot < 4; rot++)
         {
@@ -33,30 +44,53 @@ public class BeamSearch
             {
                 var test = rotated.Clone();
                 test.Position = new PointI(x, test.Position.Y);
-                if (state.Board.IsCollision(test))
+                if (board.IsCollision(test))
                     continue;
                 while (true)
                 {
                     test.Position += new PointI(0, 1);
-                    if (state.Board.IsCollision(test))
+                    if (board.IsCollision(test))
                     {
                         test.Position -= new PointI(0, 1);
                         break;
                     }
                 }
-                var temp = CloneBoard(state.Board);
+                var temp = CloneBoard(board);
                 Place(temp, test);
                 int lines = temp.ClearFullLines();
                 int finesse = Finesse.EstimateCost(piece, new Placement(x, rot, true));
-                double score = Evaluator.Score(state.Board, new Placement(x, rot, true), temp, weights, lines, finesse);
-                if (score > best)
-                {
-                    best = score;
-                    bestPlacement = new Placement(x, rot, true);
-                }
+                double score = Evaluator.Score(board, new Placement(x, rot, true), temp, weights, lines, finesse);
+                candidates.Add((new Placement(x, rot, true), score, temp));
             }
         }
-        return (bestPlacement, best);
+
+        var ordered = candidates
+            .OrderByDescending(c => c.score)
+            .Take(_beamWidth)
+            .ToList();
+
+        if (depth <= 1 || queueIndex >= queue.Count)
+        {
+            var best = ordered.FirstOrDefault();
+            return (best.placement, best.score);
+        }
+
+        double bestScore = double.NegativeInfinity;
+        Placement bestPlacement = default;
+        foreach (var cand in ordered)
+        {
+            var nextType = queue[queueIndex];
+            var nextPiece = new Tetromino(nextType, "#FFFFFF");
+            var (_, childScore) = SearchRecursive(cand.board, nextPiece, queue, weights, depth - 1, queueIndex + 1);
+            double total = cand.score + childScore;
+            if (total > bestScore)
+            {
+                bestScore = total;
+                bestPlacement = cand.placement;
+            }
+        }
+
+        return (bestPlacement, bestScore);
     }
 
     private static void Place(Board board, Tetromino piece)
