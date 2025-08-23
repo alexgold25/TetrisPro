@@ -27,6 +27,8 @@
                            Foreground="{DynamicResource Brush.Foreground}" />
                 <TextBlock Text="{Binding Lines, StringFormat=Lines: {0}}"
                            Foreground="{DynamicResource Brush.Foreground}" />
+                <TextBlock Text="{Binding ElapsedTime, StringFormat=Time: {0:mm\\:ss}}"
+                           Foreground="{DynamicResource Brush.Foreground}" />
                 <TextBlock Text="{Binding StatusText}"
                            Foreground="{DynamicResource Brush.Foreground}" />
             </StackPanel>

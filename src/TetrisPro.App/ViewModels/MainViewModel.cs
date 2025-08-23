@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,6 +32,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int score;
     [ObservableProperty] private int level;
     [ObservableProperty] private int lines;
+    [ObservableProperty] private TimeSpan elapsedTime;
     [ObservableProperty] private string statusText = "Ready";
     [ObservableProperty] private bool aiEnabled;
     [ObservableProperty] private string aiText = "AI Off";
@@ -90,6 +92,7 @@ public partial class MainViewModel : ObservableObject
         Score = state.Score;
         Level = state.Level;
         Lines = state.Lines;
+        ElapsedTime = state.Elapsed;
         StatusText = state.Status.ToString();
 
         // Update board / active / ghost pieces.
