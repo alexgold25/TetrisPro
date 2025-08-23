@@ -37,11 +37,7 @@ public partial class MainWindow : Window
     private void OnTick(object? sender, TimeSpan delta)
     {
         if (_ai != null && _ai.Enabled)
-        {
-            int repeats = Math.Max(1, _ai.SpeedMultiplier);
-            for (int i = 0; i < repeats; i++)
-                _ai.Update();
-        }
+            _ai.Update();
 
         _engine.Update(delta);
 

@@ -47,6 +47,12 @@ public class AutoPlayer
 
     public void Update()
     {
+        // Release keys pressed in the previous frame so that the engine
+        // can observe the current tick's key presses.
+        foreach (var k in _keysToRelease)
+            _input.KeyUp(k);
+        _keysToRelease.Clear();
+
         var piece = _engine.State.ActivePiece;
         if (piece != _lastPiece)
         {
@@ -64,10 +70,6 @@ public class AutoPlayer
             _input.KeyDown(key);
             _keysToRelease.Add(key);
         }
-
-        foreach (var k in _keysToRelease)
-            _input.KeyUp(k);
-        _keysToRelease.Clear();
     }
 
     public List<InputKey> FindBestMoves(Board board, Tetromino current)
