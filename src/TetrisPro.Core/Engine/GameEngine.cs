@@ -15,6 +15,8 @@ public class GameEngine : IGameEngine
     private readonly ITimeProvider _time;
     private readonly ILogger<GameEngine> _logger;
 
+    private const int QueueSize = 5;
+
     private GameConfig _config = new();
     private double _gravityCounter;
     private TimeSpan _lockCounter;
@@ -45,8 +47,13 @@ public class GameEngine : IGameEngine
             Level = 0,
             Lines = 0,
             Status = GameStatus.Spawning,
-            NextQueue = new List<PieceType>()
+            NextQueue = new List<PieceType>(),
+            Elapsed = TimeSpan.Zero
         };
+        var queue = (List<PieceType>)State.NextQueue;
+        queue.Clear();
+        for (int i = 0; i < QueueSize; i++)
+            queue.Add(_randomizer.Next());
         _holdUsed = false;
         SpawnPiece();
     }
@@ -56,6 +63,9 @@ public class GameEngine : IGameEngine
 
     public void Update(TimeSpan delta)
     {
+        if (State.Status == GameStatus.Active)
+            State.Elapsed += delta;
+
         if (State.Status != GameStatus.Active || State.ActivePiece is null)
             return;
 
@@ -252,7 +262,10 @@ public class GameEngine : IGameEngine
 
     private void SpawnPiece()
     {
-        var type = _randomizer.Next();
+        var queue = (List<PieceType>)State.NextQueue;
+        var type = queue[0];
+        queue.RemoveAt(0);
+        queue.Add(_randomizer.Next());
         var color = type switch
         {
             PieceType.I => "#00FFFF",

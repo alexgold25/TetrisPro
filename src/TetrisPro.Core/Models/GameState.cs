@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace TetrisPro.Core.Models;
@@ -13,5 +14,7 @@ public class GameState
     public int Score { get; set; }
     public int Level { get; set; }
     public int Lines { get; set; }
+    /// <summary>Total time the current game has been active.</summary>
+    public TimeSpan Elapsed { get; set; }
     public GameStatus Status { get; set; } = GameStatus.Paused;
 }
